@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Корейский агент</title>
+  <!-- <link href="https://nbvk.kittyy.ru/files/css/main.css" rel="stylesheet"></link> -->
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      margin: 0 auto;
+      margin-left: 20px;
+      background: #f0f0f0;
+      height: 100vh;
+      overflow: hidden;
+      margin-right: 20px;
+      margin-top: 40px;
+    }
+
+    .container {
+      display: flex;
+      align-items: stretch;
+      /* ← ДОБАВЬ ЭТУ СТРОЧКУ */
+      height: calc(100vh - 120px);
+      width: 95%;
+      gap: 0;
+    }
+
+    #canvas {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      flex: 1;
+      /* растягивает по ширине */
+      max-width: 80vw;
+      /* height: auto; ← УБЕРИ */
+    }
+
+    .controls {
+      /* width: 100%; */
+      background: rgb(255, 255, 255);
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      max-height: 754.7px;
+      overflow-y: auto;
+    }
+
+    .layer-item {
+      display: flex;
+      flex-direction: column;
+      padding: 8px;
+      margin: 5px 0;
+      background: #f8f9fa;
+      border-radius: 5px;
+      transition: background 0.2s;
+    }
+
+    .layer-item:hover {
+      background: #e9ecef;
+    }
+
+    .layer-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .layer-checkbox {
+      margin-right: 10px;
+      transform: scale(1.3);
+      accent-color: #007bff;
+    }
+
+    .layer-name {
+      flex: 1;
+      font-weight: 500;
+      font-size: 13px;
+    }
+
+    .position-controls {
+      display: flex;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+      font-size: 11px;
+    }
+
+    .position-controls input {
+      padding: 2px 4px;
+      border: 1px solid #ddd;
+    }
+
+    input[type="number"] {
+      -webkit-appearance: none;
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+
+    /* Скрываем стрелки для Chrome, Safari, Edge, Opera */
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    input#scale {
+      width: 24px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+
+    .info {
+      text-align: center;
+      color: #666;
+      margin-bottom: 20px;
+    }
+
+    .status {
+      text-align: center;
+      margin: 10px 0;
+      padding: 10px;
+      background: #e8f5e8;
+      border-radius: 5px;
+      font-weight: 500;
+    }
+
+    .toggle-all {
+      background: #28a745;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-bottom: 15px;
+      width: 100%;
+      font-weight: 500;
+    }
+
+    .toggle-all:hover {
+      background: #218838;
+    }
+
+    footer {
+      font-family: monospace;
+      margin: 25px;
+      font-size: 15px;
+      text-align: center;
+      font-style: normal;
+      color: var(--text-color);
+    }
+
+    a {
+      text-decoration: none;
+      color: #0066db;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="status" class="status" style="display: none;"></div>
+
+  <center>
+    <div class="container">
+      <canvas id="canvas" width="960" height="513"></canvas>
+
+      <div class="controls" style="text-align: left;">
+        <button id="toggleAll" class="toggle-all">вырубить всё 👁️</button>
+        <h3>📁 слои <span id="loadedCount">(0/0)</span></h3>
+        <div id="layers-list"></div>
+      </div>
+    </div>
+
+    <footer>
+      <span>vibecoded with <a href="https://perplexity.ai">perplexity</a> not w/ <3 by <a href="https://nbvk.kittyy.ru">qwkrtezzz</a>!</span>
+    </footer>
+  </center>
+
+  <script>
+    class ImageLayerer {
+      constructor() {
+        this.canvas = document.getElementById('canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.canvasWidth = 960;
+        this.canvasHeight = 513;
+        this.layers = [];
+        this.loadedImages = new Map();
+        this.allVisible = true;
+        this.init();
+      }
+
+      init() {
+        const links = [
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/Kim.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/character_body/ryodan.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/character_body/shbk.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/character_eyes/black_pixel_glasses.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/character_face/freckles.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/character_hair/bob_long_black.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/character_hair/bob_long_blue.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/character_hair/bob_long_pink.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/character_hair/bob_long_yellow.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/character_hair/short_black.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/character_hair/short_blue.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/character_hair/short_pink.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/character_hair/short_yellow.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/character_head/wolf_ears.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/character_left_hand/dildo.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/character_left_hand/marlboro.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/character_left_hand/pod_lost_vape_ursa_baby.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/character_legs/nike.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/location_house_type/default_apartment.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/location_house_type/minecraft_grass_house.png",
+          "https://raw.githubusercontent.com/nubov1k/bankai.kittyy.ru/main/yomu/korean-agent/location_house_type/north_korean_apartments.png",
+        ];
+
+        // 🎯 ПОРЯДОК НАЛОЖЕНИЯ СЛОЕВ (снизу вверх)
+        const layerConfigs = [
+          // 🟫 ФОНЫ (НИЖЕ ВСЕГО)
+          { x: 480, y: 256, scale: 1.0, fit: true, name: "default_apartment" },
+          { x: 480, y: 256, scale: 1.0, fit: true, name: "minecraft_grass_house" },
+          { x: 480, y: 256, scale: 1.0, fit: true, name: "north_korean_apartments" },
+
+          // 🟨 ВОЛОСЫ (ДЛИННЫЕ)
+          { x: 410, y: 220, scale: 0.25, name: "bob_long_black" },
+          { x: 410, y: 220, scale: 0.25, name: "bob_long_blue" },
+          { x: 410, y: 220, scale: 0.25, name: "bob_long_pink" },
+          { x: 410, y: 220, scale: 0.25, name: "bob_long_yellow" },
+
+          // 🟨 ВОЛОСЫ (КОРОТКИЕ)
+          { x: 410, y: 220, scale: 0.30, name: "short_black" },
+          { x: 410, y: 220, scale: 0.30, name: "short_blue" },
+          { x: 410, y: 220, scale: 0.30, name: "short_pink" },
+          { x: 410, y: 220, scale: 0.30, name: "short_yellow" },
+
+          // 🟡 ОСНОВНОЙ ПЕРСОНАЖ
+          { x: 480, y: 300, scale: 1, name: "Kim" },
+
+          // 🟣 ЛИЦО (НА ЛИЦО)
+          { x: 410, y: 220, scale: 0.15, name: "freckles" },
+          { x: 406, y: 202, scale: 0.25, name: "wolf_ears" },
+
+          // 🟢 ОЧКИ
+          { x: 408, y: 213, scale: 0.25, name: "black_pixel_glasses" },
+
+          // 🟠 НОГИ
+          { x: 407, y: 418, scale: 0.25, name: "nike" },
+
+          // 🔵 ОДЕЖДА (ВЕРХ)
+          { x: 407, y: 310, scale: 0.2, name: "ryodan" },
+          { x: 407, y: 310, scale: 0.2, name: "shbk" },
+
+          // 🔴 РУКА
+          { x: 340, y: 295, scale: 0.2, name: "dildo" },
+          { x: 350, y: 305, scale: 0.15, name: "marlboro" },
+          { x: 340, y: 290, scale: 0.2, name: "pod_lost_vape_ursa_baby" }
+        ];
+
+        // ✅ АКТИВНЫЕ СЛОИ ПО УМОЛЧАНИЮ
+        const activeLayers = ["Kim", "default_apartment", "freckles", "black_pixel_glasses", "nike", "pod_lost_vape_ursa_baby"];
+
+        // 🎯 СОЗДАЕМ СЛОИ ПО ПОРЯДКУ ИЗ layerConfigs
+        layerConfigs.forEach((config, configIndex) => {
+          // Ищем первое совпадение в links
+          const link = links.find(link => link.includes(config.name));
+          if (link) {
+            const layer = {
+              id: configIndex,  // ✅ ИД ПО Порядку layerConfigs
+              src: link,
+              name: config.name,
+              visible: activeLayers.includes(config.name),
+              loaded: false,
+              x: config.x,
+              y: config.y,
+              scale: config.scale,
+              fit: config.fit || false
+            };
+            this.layers.push(layer);
+            this.loadImage(layer);
+          }
+        });
+
+        this.updateLayersList();
+        this.render();
+        this.bindEvents();
+      }
+
+      toggleAllLayers() {
+        this.allVisible = !this.allVisible;
+        this.layers.forEach(layer => layer.visible = this.allVisible);
+        this.updateLayersList();
+        document.getElementById('toggleAll').textContent =
+          this.allVisible ? '🙈 вырубить всё' : 'включить всё 👁️';
+      }
+
+      loadImage(layer) {
+        return new Promise((resolve) => {
+          if (this.loadedImages.has(layer.src)) {
+            layer.loaded = true;
+            this.updateStatus();
+            resolve();
+            return;
+          }
+
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            this.loadedImages.set(layer.src, img);
+            layer.loaded = true;
+            this.updateStatus();
+            resolve();
+          };
+          img.onerror = () => {
+            console.warn(`❌ Не удалось загрузить: ${layer.src}`);
+            layer.loaded = false;
+            this.updateStatus();
+            resolve();
+          };
+          img.src = layer.src;
+        });
+      }
+
+      updateStatus() {
+        const loaded = this.layers.filter(l => l.loaded).length;
+        const total = this.layers.length;
+        document.getElementById('loadedCount').textContent = `(${loaded}/${total})`;
+      }
+
+      render() {
+        this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+
+        // 🎯 РИСУЕМ ПО ПОРЯДКУ layerConfigs (0=НИЖЕ, последний=ВЕРХ)
+        for (let i = 0; i < this.layers.length; i++) {
+          const layer = this.layers[i];
+          if (layer.visible && layer.loaded && this.loadedImages.has(layer.src)) {
+            const img = this.loadedImages.get(layer.src);
+
+            let drawWidth, drawHeight, drawX, drawY;
+
+            if (layer.fit) {
+              drawWidth = this.canvasWidth;
+              drawHeight = this.canvasHeight;
+              drawX = 0;
+              drawY = 0;
+            } else {
+              drawWidth = img.width * layer.scale;
+              drawHeight = img.height * layer.scale;
+              drawX = layer.x - (drawWidth / 2);
+              drawY = layer.y - (drawHeight / 2);
+            }
+
+            this.ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+          }
+        }
+
+        requestAnimationFrame(() => this.render());
+      }
+
+      updateLayersList() {
+        const container = document.getElementById('layers-list');
+        container.innerHTML = '';
+
+        // ✅ ПОРЯДОК В СПИСКЕ ТОЖЕ ПО layerConfigs
+        this.layers.forEach((layer, index) => {
+          const div = document.createElement('div');
+          div.className = 'layer-item';
+          div.innerHTML = `
+                        <div class="layer-header">
+                            <input type="checkbox" class="layer-checkbox" 
+                                   data-layer-id="${index}" ${layer.visible ? 'checked' : ''}>
+                            <span class="layer-name">${layer.name} (#${index})</span>
+                        </div>
+                        <div class="position-controls">
+                            <div>x<input type="number" step="1" min="0" max="960" value="${layer.x}" 
+                                   data-layer-id="${index}" data-prop="x"></div>
+                            <div>y<input type="number" step="1" min="0" max="513" value="${layer.y}" 
+                                   data-layer-id="${index}" data-prop="y"></div>
+                            <div>размер: <input id="scale" type="number" step="0.05" min="0.1" max="2" value="${layer.scale}" 
+                                   data-layer-id="${index}" data-prop="scale"></div>
+                        </div>
+                    `;
+          container.appendChild(div);
+        });
+      }
+
+      bindEvents() {
+        document.addEventListener('change', (e) => {
+          if (e.target.classList.contains('layer-checkbox')) {
+            const layerId = parseInt(e.target.dataset.layerId);
+            this.layers[layerId].visible = e.target.checked;
+          } else if (e.target.dataset.layerId) {
+            const layerId = parseInt(e.target.dataset.layerId);
+            const prop = e.target.dataset.prop;
+            this.layers[layerId][prop] = parseFloat(e.target.value);
+          }
+        });
+
+        document.getElementById('toggleAll').addEventListener('click', () => {
+          this.toggleAllLayers();
+        });
+
+        this.canvas.addEventListener('click', () => {
+          this.canvas.style.transform =
+            this.canvas.style.transform === 'scale(0.95)' ? 'scale(1)' : 'scale(0.95)';
+          setTimeout(() => {
+            this.canvas.style.transform = 'scale(1)';
+          }, 150);
+        });
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      new ImageLayerer();
+    });
+  </script>
+</body>
+
+</html>
